@@ -84,14 +84,34 @@ A10 上 INT8 峰值 250 TOPS，而这个形状只跑得出 ~53% MFU（bf16 也�
 
 ## 兼容性
 
+**可以和 KJNodes 的 H3 显存节点一起挂。** 它们改的是 `blocks.N.attn.forward` /
+`blocks.N.mlp.forward`，本节点改的是 `blocks.N.forward`——不同层级，互不覆盖：
+本节点的 forward 内部照常调用 `block.attn(...)` / `block.mlp(...)`，
+`add_object_patch` 的 setattr 打在实例上、遮蔽类方法，所以它们打的补丁照样会执行。
+
 | 组合 | 结论 |
 |---|---|
 | 加速 / 量化 LoRA | ✅ 兼容（LoRA 改权重，本节点只换 forward） |
 | comfy_kitchen 注意力 / vc_attention | ✅ 兼容（不同层） |
-| **KJNodes `H3 Low VRAM Attention` / `H3 Chunk FeedForward`** | ✅ **兼容**：它们打的是 `blocks.N.attn.forward` / `blocks.N.mlp.forward`，本节点打的是 `blocks.N.forward`——不同层级。本节点内部照常调用 `block.attn(...)` / `block.mlp(...)`，所以它们的补丁照样生效 |
+| **KJNodes `H3 Low VRAM Attention` / `H3 Chunk FeedForward`** | ✅ **兼容**：`blocks.N.attn.forward` / `blocks.N.mlp.forward` vs 本节点的 `blocks.N.forward`，不同层级 |
 | sol-attn 的 `MiniMax H3 Fused Modulation` | ✅ 不叠加：同一个 `blocks.N.forward` 路径。代码靠 `_minimax_h3_fusion_fallback` 标记认出同族实现，只保留一层，不会叠两遍 |
-| 其它抢先打过 `blocks.N.forward` 的节点 | ⚠️ 本节点会**跳过**那些 block 并在日志里说明（`applied to 0/50 blocks`），不会静默失效也不会崩 |
+| 其它抢先打过 `blocks.N.forward` 的节点 | ⚠️ 本节点会**跳过**那些 block 并在日志里说明，不会静默失效也不会崩 |
 | 非 MiniMax H3 模型 | 原样返回，不做任何改动 |
+
+### 怎么确认两边都生效
+
+跑一次，看控制台有没有这两行（本节点这行只在第一次真正走融合时打一次）：
+
+```
+[H3 fusion] active (25393 tokens, 6 modulation segments)     ← 本节点
+<kjnodes 自己打的那行>                                        ← KJNodes
+```
+
+如果本节点被同层级的未知补丁挡住，它会明说，不会假装成功：
+
+```
+⚠️ 融合未生效（applied to 0/50 blocks (50 blocked by another patch)）
+```
 
 ---
 
