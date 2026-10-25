@@ -70,8 +70,8 @@ class H3AccelSuite:
             log.warning("%s ❌ 融合未生效（%s: %s）", _TAG, type(exc).__name__, exc)
             return (model,)
 
-        if status.startswith("skipped"):
-            log.warning("%s ❌ 融合未生效（%s）", _TAG, status)
+        if status.startswith("skipped") or status.startswith("applied to 0/"):
+            log.warning("%s ⚠️ 融合未生效（%s）", _TAG, status)
         else:
             log.info("%s ✅ 融合已生效（%s）", _TAG, status)
         return (model,)

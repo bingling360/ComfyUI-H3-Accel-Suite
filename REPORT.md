@@ -141,7 +141,7 @@ block 运行时 `norm1.weight` 可能仍在 CPU，而权重折叠直接 `weight.
 |---|---|---|
 | 融合 + CK 注意力 | ✅ 兼容 | CK 走 `transformer_options["optimized_attention_override"]`，融合原样透传 |
 | 融合 + LoRA | ✅ 兼容 | LoRA 改权重，融合只改 forward |
-| 融合 + KJNodes H3 Low VRAM | ❌ **互斥** | 两者都替换 `block.forward`；本节点会跳过已被别人打的 block |
+| 融合 + KJNodes H3 Low VRAM | ✅ **兼容（原先判为互斥，已更正）** | KJNodes 的 H3 节点打的是 `blocks.N.attn.forward` / `blocks.N.mlp.forward`，不是 `block.forward`；本节点的 block 级 forward 内部照常调用 `block.attn(...)` / `block.mlp(...)`，它们的补丁依然生效。依据：KJNodes 各节点的补丁路径 + `nn.Module.__call__` 的实例属性解析；未实机装上 KJNodes 验证 |
 | 融合 + vc_attention | ✅ 兼容 | 不同层 |
 | torch_compile + 量化模型 | ❌ 无效 | 每个量化线性层 graph break（实测 `graph breaks: 26`） |
 | torch_compile + LoRA | ⚠️ 换 LoRA 重编译 | 顺序应为 LoRA 在前、编译在后 |
