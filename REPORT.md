@@ -2,6 +2,12 @@
 
 日期：2026-10-25
 节点包：`ComfyUI-H3-Accel-Suite`
+
+> **注（同日后续）**：节点已简化，`fused_modulation` / `torch_compile` / `compile_scope` /
+> `compile_mode` / `measure_timing` 五个开关全部移除，只保留逐位一致的融合路径（常开）+ 计时（常开）。
+> 下文第三节、第七节里的参数名是当时的记录，保留原样以便对照；删除理由见提交说明与
+> `AGGRESSIVE_BUG.md` 第七节（aggressive 实测 0.07% 收益 / 14.6 dB 画面漂移，torch.compile 在
+> W6A8 上 graph break 26 处）。
 实测环境：A10（22 GB，SM86）/ ComfyUI 0.42.0 / comfy-kitchen 0.2.40 / comfy-aimdo 0.6.0 / torch 2.13.0+cu130 / Linux
 模型：`minimax_h3_ref2va_pruned_w6a8.safetensors`（W6A8 量化）/ 864×480 / 25,818 token / 6 调制段 / 10 步
 
