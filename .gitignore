@@ -1,12 +1,10 @@
 __pycache__/
 *.py[cod]
 
+# 运行期产物
+*.jsonl
+*.log
+
 # 本地 agent 状态，不进仓库
 .workbuddy/
 .workbuddy-ai/
-
-# 运行期产物（计时记录、临时抽帧、日志）
-h3_accel_stats.jsonl
-*.jsonl
-_frames/
-*.log

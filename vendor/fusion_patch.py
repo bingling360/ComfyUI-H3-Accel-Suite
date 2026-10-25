@@ -30,12 +30,6 @@ import logging
 
 import torch
 
-try:  # section profiling is optional; never let it break the patch
-    from ..timing import get_profiler as _get_profiler
-except Exception:  # noqa: BLE001
-    def _get_profiler():
-        return None
-
 log = logging.getLogger("H3Accel")
 
 _FALLBACK_ATTR = "_minimax_h3_fusion_fallback"
@@ -43,21 +37,6 @@ _FALLBACK_ATTR = "_minimax_h3_fusion_fallback"
 
 class _FusionUnsupported(Exception):
     """Raised for calls the fused path intentionally declines."""
-
-
-class _NullProfiler:
-    """Stand-in so the block loop can call mark()/add() unconditionally."""
-
-    @staticmethod
-    def mark():
-        return None
-
-    @staticmethod
-    def add(section, start, end):
-        return None
-
-
-_NULL_PROFILER = _NullProfiler()
 
 
 class _FusionLog:
@@ -114,7 +93,6 @@ def _make_fused_h3_block_forward(
     """Replace only H3's modulation/residual elementwise work."""
 
     def forward(x, t_emb, mod_segments, rope_freqs, transformer_options=None, attention=None):
-        prof = _get_profiler() or _NULL_PROFILER
         if transformer_options is None:
             transformer_options = {}
 
@@ -148,10 +126,7 @@ def _make_fused_h3_block_forward(
 
             # Everything up to the first residual update leaves x untouched, so
             # an eligibility/kernel failure here can safely use eager forward.
-            mark = prof.mark
-            e0 = mark()
             h = fused_modulate(block.norm1(x), shift_msa, scale_msa, row_index)
-            e1 = mark()
         except _FusionUnsupported as exc:
             fusion_log.miss(str(exc))
             return fallback()
@@ -171,22 +146,10 @@ def _make_fused_h3_block_forward(
             rope_freqs=rope_freqs,
             transformer_options=transformer_options,
         )
-        e2 = mark()
         x = fused_gate_add(x, gate_msa, attended, row_index)
-        e3 = mark()
         h = fused_modulate(block.norm2(x), shift_mlp, scale_mlp, row_index)
-        e4 = mark()
         mlp_out = block.mlp(h)
-        e5 = mark()
         x = fused_gate_add(x, gate_mlp, mlp_out, row_index)
-        e6 = mark()
-
-        prof.add("modulation", e0, e1)
-        prof.add("attention", e1, e2)
-        prof.add("gate", e2, e3)
-        prof.add("modulation", e3, e4)
-        prof.add("mlp", e4, e5)
-        prof.add("gate", e5, e6)
 
         fusion_log.hit(x.shape[0], len(mod_segments))
         return x
